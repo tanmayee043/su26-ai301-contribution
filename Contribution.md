@@ -6,7 +6,7 @@
 
 **Issue:** [\[GitHub issue link\]  ](https://github.com/documentdb/functional-tests/issues/203)
 
-**Status:** Phase I  [In Progress]
+**Status:** Phase I  Complete
 
 ---
 
