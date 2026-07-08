@@ -28,15 +28,16 @@ The refined-saved-replies extension adds a repository's shared replies (defined 
 
 ### Expected Behavior
 
-[What should happen?]
+When a repository's `.github/replies.yml` can't be loaded or is invalid, the extension should show a small indication in the Saved Replies dropdown so the user knows something went wrong. If the saved-replies dropdown can't be found where it's expected, a `console.error` should be logged.
 
 ### Current Behavior
 
-[What actually happens?]
+The extension fails silently. On any load/parse failure it only writes a `console.error` (which most users never see) and stops — so the repository's replies just don't appear, with no explanation.
 
 ### Affected Components
 
-[Which parts of the codebase are involved?]
+- `src/fetchRepliesConfiguration.ts` — fetches/validates the replies file; returns nothing on failure.
+- `src/content-script.ts` — injects replies into the dropdown; silently returns when the config is missing.
 
 ---
 
@@ -245,31 +246,75 @@ Full suite: **28 tests passing.** I also ran `pnpm tsc` (type-check) and `pnpm e
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when submitted]
+**PR Link:** https://github.com/JoshuaKGoldberg/refined-saved-replies/pull/1444
 
-**PR Description:** [Draft or final PR description - much of the content above can be adapted]
+**PR Description:**
+
+*What does this PR do?:* Surfaces errors loading a repository's `.github/replies.yml` to the user
+instead of failing silently. `fetchRepliesConfiguration` now returns a typed result
+(`success` / `notFound` / `error`); on a real load or parse failure, a small indication is shown in
+the Saved Replies dropdown, and a `console.error` is logged when the dropdown can't be found on a
+page where it's expected. A missing file (404) is still treated as normal and stays quiet.
+
+*Why was this PR needed?:* Issue #2 asked for errors to be indicated to the user. Previously the
+extension only logged failures to the developer console and returned, so an everyday user got no
+signal when a repository's replies couldn't be loaded — the replies just silently didn't appear.
+
+*What are the relevant issue numbers?:* Closes #2
+
+*Does this PR meet the acceptance criteria?:*
+- [x] Addresses an existing open issue (fixes #2)
+- [x] Issue was marked `status: accepting prs`
+- [x] Steps in CONTRIBUTING.md were followed (conventional-commits title, PR template, 📨)
+- [x] Unit tests updated for the new result type; all tests passing (28)
+- [x] `pnpm tsc` and `pnpm eslint` clean
+- [ ] Live browser verification — **blocked by GitHub's Saved Replies UI redesign** (documented in
+      the PR and my README); verification relies on the automated tests
 
 **Maintainer Feedback:**
-- [Date]: [Summary of feedback received]
-- [Date]: [How you addressed it]
+- **Jun 24:** On opening the PR, the automated **OctoGuide** best-practices bot flagged that one
+  PR-template checkbox ("That issue was marked as `status: accepting prs`") wasn't checked in the
+  raw markdown. Root cause: I had simplified that template line and dropped its link, so the bot
+  couldn't match it to the template task. I fixed it by restoring the exact template text (with the
+  link) and keeping the box checked.
+- **Jun 25:** OctoGuide re-ran automatically after my edit and posted *"All reports are resolved
+  now."*
+- **Ongoing:** The 11 required CI checks are **awaiting maintainer approval** — a standard gate for
+  first-time contributors — so they haven't run yet, and there's been no human review so far.
+- **Note:** Per the project's CONTRIBUTING.md, I intentionally did **not** @-mention or tag a
+  maintainer to request review; the guidelines explicitly ask contributors not to.
 
-**Status:** [Awaiting review / Iterating / Approved / Merged]
+**Status:** Awaiting review
 
 ---
 
 ## Learnings & Reflections
 
 ### Technical Skills Gained
-
-[What you learned technically]
+- Modeling outcomes with **TypeScript discriminated unions**, and how that lets a caller handle
+  distinct cases (success / not-found / error) cleanly and type-safely.
+- How a **browser extension** actually works: content scripts, the `manifest.json` matches, and the
+  build step that bundles TypeScript into the `lib/content-script.js` the browser runs.
+- **Vitest** unit testing (and why the project's `console-fail-test` setup means console calls must
+  be mocked), plus keeping `tsc` and ESLint green.
+- The real **fork → branch → commit → PR** open-source workflow, conventional-commit messages, and
+  reading a project's CONTRIBUTING.md *before* coding.
 
 ### Challenges Overcome
-
-[What was hard and how you solved it]
+- **Keeping every commit green:** changing a return type broke another file at compile time, so I
+  learned to sequence the work as a behavior-preserving refactor first, then the feature.
+- **Diagnosing the GitHub UI drift:** when the extension showed no effect, I used DevTools to test
+  the selector directly (`querySelector(...) === null`) and traced it to GitHub redesigning its
+  Saved Replies UI — a good lesson in how DOM-scraping extensions break when the host site changes.
+- **The OctoGuide bot:** learning that automated reviewers match PR text literally against the
+  template, and that small deviations (a dropped link) can fail a check.
 
 ### What I'd Do Differently Next Time
-
-[Reflection on your process]
+- **Verify the target actually runs first:** I'd confirm the extension still works on current GitHub
+  *before* planning to rely on live testing — that would have surfaced the UI drift on day one.
+- **Match the PR template exactly from the start** (links and all) to avoid the bot flag.
+- Keep the PR description's acceptance-criteria checklist in mind while coding, so I'm tracking the
+  right evidence as I go rather than reconstructing it at submission time.
 
 ---
 
