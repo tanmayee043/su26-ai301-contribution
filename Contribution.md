@@ -6,7 +6,7 @@
 
 **Issue:** [\[GitHub issue link\]  ](https://github.com/JoshuaKGoldberg/refined-saved-replies)
 
-**Status:** Phase II  Complete 
+**Status:** Phase IV  Complete 
             (Forked the project, link - https://github.com/tanmayee043/AI301-Open-Source-First-Issue)
             
 **Note**: I did not post an interest comment on the issue because this project's CONTRIBUTING.md explicitly prohibits issue-claiming comments - skipping it was intentional, to follow the maintainer's rules.
