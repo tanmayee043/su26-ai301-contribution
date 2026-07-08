@@ -156,36 +156,90 @@ automated tests.
 
 ### Unit Tests
 
-- [ ] Test case 1: [Description]
-- [ ] Test case 2: [Description]
-- [ ] Test case 3: [Description]
+Updated `src/fetchRepliesConfiguration.test.ts` (Vitest) to cover all three result shapes:
+
+- [x] Returns an `error` result **and** logs `console.error` when the fetch is not ok and status is not 404
+- [x] Returns a `notFound` result **and** does *not* log when status is 404
+- [x] Returns an `error` result **and** logs `console.error` when the fetched config is invalid/malformed
+- [x] Returns a `success` result (with the parsed configuration) for a valid file
+
+Full suite: **28 tests passing.** I also ran `pnpm tsc` (type-check) and `pnpm eslint` — both clean.
 
 ### Integration Tests
 
-- [ ] Integration scenario 1
-- [ ] Integration scenario 2
+- The project has **no test file for `content-script.ts`** — it's DOM/browser code that the project
+  itself does not unit-test — so I followed that existing convention and did not add one. The
+  testable logic (the result types) lives in `fetchRepliesConfiguration`, which is fully covered.
 
 ### Manual Testing
 
-[What you tested manually and results]
+- I built the extension (`pnpm dev`) and loaded it into Chrome (`chrome://extensions` → *Load
+  unpacked*), then opened GitHub issue/PR pages to verify end-to-end.
+- **Limitation:** the extension no longer runs on current GitHub — its first selector
+  (`[data-show-dialog-id="saved_replies_menu_new_comment_field-dialog"]`) returns `null` because
+  GitHub redesigned its Saved Replies UI, so `content-script.ts` exits before reaching my code. I
+  confirmed this in DevTools (the selector query returned `null`). Because a live demo isn't
+  possible, verification relies on the automated tests above, and I flagged the UI drift to the
+  maintainer in my PR.
 
 ---
 
 ## Implementation Notes
 
-### Week [X] Progress
+### Week 3 Progress
 
-[What you built this week, challenges faced, decisions made]
+**What I built:**
+- Reworked `src/fetchRepliesConfiguration.ts` so it returns a **typed, discriminated result**
+  instead of "the configuration or `undefined`". The new `RepliesConfigurationResult` is one of:
+  - `{ type: "success"; configuration }`
+  - `{ type: "error"; message }`  (non-404 network failure, or invalid/malformed YAML)
+  - `{ type: "notFound" }`         (404 — repo simply has no replies file; stay quiet)
+- Updated `src/content-script.ts` to act on that result:
+  - `notFound` → return early and show nothing (normal for most repos)
+  - `error` → render a small muted indication in the Saved Replies dropdown
+    ("Couldn't load this repository's replies: …")
+  - `success` → unchanged existing behavior
+  - Added a `console.error` when the saved-replies dropdown menus can't be found on a page
+    where they're expected (the issue's second request).
+- Kept the existing `console.error` logging in place — it's still useful for developers, and the
+  issue asked to *add* user-facing signaling, not remove logging.
 
-### Week [Y] Progress
-
-[Continue documenting as you work]
+**Challenges faced:**
+- **Keeping each commit green.** Changing the return type of `fetchRepliesConfiguration` immediately
+  broke `content-script.ts` at compile time (`tsc` error: `Property 'replies' does not exist on
+  type RepliesConfigurationResult`). Rather than one big commit, I split the work so every commit
+  compiles and passes tests (see Code Changes below) — a behavior-preserving refactor first, then
+  the feature.
+- **ESLint union ordering.** The project uses a strict `perfectionist/sort-union-types` rule; my
+  first ordering of the union members failed lint. The linter told me the exact expected order, so
+  I reordered `success | error | notFound`.
+- **Pre-commit hook.** The repo runs `lint-staged` on commit, which auto-runs Prettier on staged
+  files. Good to know so formatting stays consistent — my commits were reformatted automatically.
+- **TypeScript narrowing.** In `content-script.ts` I used an `if (result.type === "error") { …;
+  continue; }` inside the render loop, which lets TypeScript narrow the rest of the loop to
+  `success` so `result.configuration.replies` type-checks cleanly.
 
 ### Code Changes
 
-- **Files modified:** [List]
-- **Key commits:** [Links to important commits]
-- **Approach decisions:** [Why you chose certain approaches]
+- **Files modified:**
+  - `src/fetchRepliesConfiguration.ts` — new `RepliesConfigurationResult` union + return logic
+  - `src/fetchRepliesConfiguration.test.ts` — updated tests for the three result shapes
+  - `src/content-script.ts` — consume the result, render the error indication, add the `console.error`
+- **Key commits:**
+  - `d516875` — `refactor: return a typed result from fetchRepliesConfiguration`
+    (behavior-preserving; also updates the tests so the commit stays green)
+    https://github.com/tanmayee043/AI301-Open-Source-First-Issue/commit/d516875
+  - `7ae184f` — `feat: indicate replies loading errors to the user`
+    (the actual user-facing behavior + the missing-dropdown `console.error`)
+    https://github.com/tanmayee043/AI301-Open-Source-First-Issue/commit/7ae184f
+- **Approach decisions:**
+  - **Discriminated union** so the caller can tell a normal missing file (404 → quiet) apart from a
+    real failure (→ show something). This was the key enabler for the whole feature.
+  - **Two commits (refactor → feature)** so each commit independently compiles and passes tests,
+    which makes the history easy to review.
+  - **Reused existing UI patterns** (`createElement`, the `select-menu-divider` header) and Primer
+    utility classes (`color-fg-muted`, `px-3 py-2`) for the indication, to match the extension's
+    existing style rather than inventing new markup.
 
 ---
 
